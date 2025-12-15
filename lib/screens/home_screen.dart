@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/sync_provider.dart';
 import '../providers/sales_provider.dart';
+import 'products_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -169,14 +170,15 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildMenuCard(
                   context,
-                  icon: Icons.shopping_cart,
-                  title: 'New Sale',
-                  color: Colors.green,
+                  icon: Icons.inventory,
+                  title: 'Products',
+                  color: Colors.blue,
                   onTap: () {
-                    // TODO: Navigate to POS screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('POS Screen - Coming next!')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProductsScreen(),
+                      ),
                     );
                   },
                 ),
