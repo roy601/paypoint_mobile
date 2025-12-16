@@ -6,6 +6,10 @@ import '../providers/product_provider.dart';
 import '../providers/sync_provider.dart';
 import '../providers/sales_provider.dart';
 import 'products_screen.dart';
+import 'sales_history_screen.dart';
+import 'pos_screen.dart';
+import 'reports_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -109,6 +113,19 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
+          // Settings button - ADD THIS
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+
           // Logout button
           IconButton(
             icon: const Icon(Icons.logout),
@@ -170,6 +187,20 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildMenuCard(
                   context,
+                  icon: Icons.shopping_cart,
+                  title: 'New Sale',
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const POSScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuCard(
+                  context,
                   icon: Icons.inventory,
                   title: 'Products',
                   color: Colors.blue,
@@ -184,27 +215,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 _buildMenuCard(
                   context,
-                  icon: Icons.inventory,
-                  title: 'Products',
-                  color: Colors.blue,
-                  onTap: () {
-                    // TODO: Navigate to Products screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Products Screen - Coming next!')),
-                    );
-                  },
-                ),
-                _buildMenuCard(
-                  context,
                   icon: Icons.history,
                   title: 'Sales History',
                   color: Colors.orange,
                   onTap: () {
-                    // TODO: Navigate to Sales History
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Sales History - Coming next!')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SalesHistoryScreen(),
+                      ),
                     );
                   },
                 ),
@@ -214,9 +233,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: 'Reports',
                   color: Colors.purple,
                   onTap: () {
-                    // TODO: Navigate to Reports
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Reports - Coming next!')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReportsScreen(),
+                      ),
                     );
                   },
                 ),
