@@ -50,7 +50,14 @@ dependencies:
 
   # Supabase
   supabase_flutter: ^2.0.0
-  connectivity_plus: ^5.0.2  # For checking internet connection
+  connectivity_plus: ^5.0.2
+
+  # PDF Generation & Sharing
+  pdf: ^3.10.7
+  printing: ^5.11.1
+
+  # File Sharing
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:

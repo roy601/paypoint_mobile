@@ -9,6 +9,7 @@ import 'providers/sync_provider.dart';
 import 'providers/sales_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/main_navigation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,7 +88,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
         return authProvider.isLoggedIn
-            ? const HomeScreen()
+            ? const MainNavigationScreen()
             : const LoginScreen();
       },
     );

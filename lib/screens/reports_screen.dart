@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../providers/sales_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/auth_provider.dart';
+import '../database/database_helper.dart';
+import '../services/pdf_service.dart';
 import '../models/sale.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   DateTime? _endDate;
   String _selectedPeriod = 'Today';
   final List<String> _periods = ['Today', 'This Week', 'This Month', 'Custom'];
+  bool _isGeneratingPDF = false;
 
   @override
   void initState() {
@@ -59,7 +62,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: Colors.blue,
               onPrimary: Colors.white,
               surface: Colors.white,
@@ -123,6 +126,106 @@ class _ReportsScreenState extends State<ReportsScreen> {
     ).toList();
   }
 
+  Future<void> _generatePDF() async {
+    final salesProvider = Provider.of<SalesProvider>(context, listen: false);
+    final filteredSales = _getFilteredSales(salesProvider.sales);
+
+    if (filteredSales.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No sales data to export'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isGeneratingPDF = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final orgId = authProvider.organizationId;
+
+      String shopName = 'My Shop';
+      if (orgId != null) {
+        final orgData = await DatabaseHelper.instance.getOrganization(orgId);
+        if (orgData != null) {
+          shopName = orgData['name'];
+        }
+      }
+
+      // Calculate stats
+      final totalSales = filteredSales.length;
+      final totalRevenue = filteredSales.fold<double>(0, (sum, sale) => sum + sale.total);
+      final avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0.0;
+      final totalItems = filteredSales.fold<int>(
+        0,
+            (sum, sale) => sum + sale.items.fold<int>(
+          0,
+              (itemSum, item) => itemSum + item.quantity,
+        ),
+      );
+
+      // Top products
+      final Map<String, Map<String, dynamic>> productSales = {};
+      for (var sale in filteredSales) {
+        for (var item in sale.items) {
+          if (productSales.containsKey(item.productId)) {
+            productSales[item.productId]!['quantity'] += item.quantity;
+            productSales[item.productId]!['revenue'] += item.subtotal;
+          } else {
+            productSales[item.productId] = {
+              'name': item.productName,
+              'quantity': item.quantity,
+              'revenue': item.subtotal,
+            };
+          }
+        }
+      }
+
+      final sortedProducts = productSales.entries.toList()
+        ..sort((a, b) => b.value['quantity'].compareTo(a.value['quantity']));
+
+      final topProducts = sortedProducts.take(5).map((e) => e.value).toList();
+
+      final stats = {
+        'totalSales': totalSales,
+        'revenue': totalRevenue,
+        'avgOrder': avgOrderValue,
+        'itemsSold': totalItems,
+        'topProducts': topProducts,
+      };
+
+      final pdfBytes = await PDFService.generateSalesReportPDF(
+        sales: filteredSales,
+        startDate: _startDate!,
+        endDate: _endDate!,
+        shopName: shopName,
+        stats: stats,
+      );
+
+      await PDFService.printOrSharePDF(
+        pdfBytes,
+        'sales_report_${DateFormat('yyyy_MM_dd').format(_startDate!)}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isGeneratingPDF = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final salesProvider = Provider.of<SalesProvider>(context);
@@ -136,6 +239,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
       appBar: AppBar(
         title: const Text('Reports & Analytics'),
         actions: [
+          IconButton(
+            icon: _isGeneratingPDF
+                ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+                : const Icon(Icons.print),
+            onPressed: _isGeneratingPDF ? null : _generatePDF,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,

@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
-import '../providers/sync_provider.dart';
 import '../providers/sales_provider.dart';
-import 'products_screen.dart';
-import 'sales_history_screen.dart';
+import '../providers/auth_provider.dart';
 import 'pos_screen.dart';
-import 'reports_screen.dart';
-import 'settings_screen.dart';
+import 'day_cashbook_screen.dart';
+import 'ledger_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -26,230 +23,215 @@ class _HomeScreenState extends State<HomeScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
       final salesProvider = Provider.of<SalesProvider>(context, listen: false);
-      final syncProvider = Provider.of<SyncProvider>(context, listen: false);
 
       final orgId = authProvider.organizationId;
 
-      // Set organization ID for all providers
       productProvider.setOrganizationId(orgId);
       salesProvider.setOrganizationId(orgId);
-      syncProvider.setOrganizationId(orgId);
 
-      // Load data
       productProvider.loadProducts();
-      syncProvider.autoSync();
+      salesProvider.loadSales();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final syncProvider = Provider.of<SyncProvider>(context);
-    final user = authProvider.currentUser;
+    final salesProvider = Provider.of<SalesProvider>(context);
+    final productProvider = Provider.of<ProductProvider>(context);
+    final currencyFormat = NumberFormat.currency(symbol: '৳', decimalDigits: 2);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('PayPoint POS'),
-            if (user != null)
-              Text(
-                'Welcome, ${user.username}',
-                style: const TextStyle(fontSize: 12),
-              ),
-          ],
-        ),
-        actions: [
-          // Sync status indicator
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Row(
-              children: [
-                Icon(
-                  syncProvider.isOnline ? Icons.cloud_done : Icons.cloud_off,
-                  color: syncProvider.isOnline ? Colors.green : Colors.grey,
-                  size: 20,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  syncProvider.isOnline ? 'Online' : 'Offline',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: syncProvider.isOnline ? Colors.green : Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Manual sync button
-          IconButton(
-            icon: syncProvider.isSyncing
-                ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-                : const Icon(Icons.sync),
-            onPressed: syncProvider.isSyncing
-                ? null
-                : () async {
-              await syncProvider.manualSync();
-              if (mounted && syncProvider.lastSyncMessage != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(syncProvider.lastSyncMessage!),
-                    backgroundColor: syncProvider.lastSyncMessage!
-                        .contains('success')
-                        ? Colors.green
-                        : Colors.orange,
-                  ),
-                );
-              }
-            },
-          ),
-
-          // Settings button - ADD THIS
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-            },
-          ),
-
-          // Logout button
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Logout'),
-                  content: const Text('Are you sure you want to logout?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Logout'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true && mounted) {
-                await authProvider.logout();
-              }
-            },
-          ),
-        ],
-      ),
-      body: Column(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sync status banner
-          if (syncProvider.lastSyncTime != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.blue.shade50,
-              child: Row(
+          // Quick Stats Cards
+          FutureBuilder<Map<String, dynamic>>(
+            future: _getQuickStats(salesProvider, productProvider),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final stats = snapshot.data!;
+              return Column(
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Last synced: ${DateFormat('MMM dd, yyyy hh:mm a').format(syncProvider.lastSyncTime!)}',
-                      style: const TextStyle(fontSize: 12, color: Colors.blue),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Today Sales',
+                          '${stats['todayCount']}',
+                          Icons.shopping_cart,
+                          Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Revenue',
+                          currencyFormat.format(stats['todayRevenue']),
+                          Icons.attach_money,
+                          Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Products',
+                          '${stats['totalProducts']}',
+                          Icons.inventory,
+                          Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Low Stock',
+                          '${stats['lowStock']}',
+                          Icons.warning,
+                          Colors.red,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ),
+              );
+            },
+          ),
 
-          // Menu grid
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              padding: const EdgeInsets.all(16),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              children: [
-                _buildMenuCard(
-                  context,
-                  icon: Icons.shopping_cart,
-                  title: 'New Sale',
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const POSScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.inventory,
-                  title: 'Products',
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProductsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.history,
-                  title: 'Sales History',
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SalesHistoryScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.analytics,
-                  title: 'Reports',
-                  color: Colors.purple,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ReportsScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
+          const SizedBox(height: 24),
+
+          // Quick Actions
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+          const SizedBox(height: 12),
+
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.5,
+            children: [
+              _buildActionCard(
+                context,
+                icon: Icons.point_of_sale,
+                title: 'New Sale',
+                color: Colors.green,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const POSScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildActionCard(
+                context,
+                icon: Icons.book,
+                title: 'Day Cashbook',
+                color: Colors.blue,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DayCashbookScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildActionCard(
+                context,
+                icon: Icons.account_balance_wallet,
+                title: 'Ledger',
+                color: Colors.purple,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LedgerScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildActionCard(
+                context,
+                icon: Icons.analytics,
+                title: 'Quick Report',
+                color: Colors.orange,
+                onTap: () {
+                  // Navigate to reports tab
+                  // This will be handled by parent navigation
+                },
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuCard(
+  Future<Map<String, dynamic>> _getQuickStats(
+      SalesProvider salesProvider,
+      ProductProvider productProvider,
+      ) async {
+    final todayTotal = await salesProvider.getTodayTotal();
+    final todayCount = await salesProvider.getTodayCount();
+    final products = productProvider.products;
+    final lowStock = products.where((p) => p.stock < 10 && p.isActive).length;
+
+    return {
+      'todayCount': todayCount,
+      'todayRevenue': todayTotal,
+      'totalProducts': products.length,
+      'lowStock': lowStock,
+    };
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionCard(
       BuildContext context, {
         required IconData icon,
         required String title,
@@ -257,28 +239,22 @@ class _HomeScreenState extends State<HomeScreen> {
         required VoidCallback onTap,
       }) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      elevation: 2,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 64,
-              color: color,
-            ),
-            const SizedBox(height: 12),
+            Icon(icon, size: 40, color: color),
+            const SizedBox(height: 8),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

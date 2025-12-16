@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../database/database_helper.dart';
 import '../models/organization.dart';
@@ -39,6 +40,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<bool> _getQuickSaleFABPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('show_quick_sale_fab') ?? false;
+  }
+
+  Future<void> _setQuickSaleFABPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_quick_sale_fab', value);
   }
 
   @override
@@ -160,6 +171,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ],
+
+          const SizedBox(height: 8),
+          _buildSectionHeader('Quick Actions'),
+
+          // Quick Sale FAB Toggle
+          FutureBuilder<bool>(
+            future: _getQuickSaleFABPreference(),
+            builder: (context, snapshot) {
+              final isEnabled = snapshot.data ?? false;
+              return SwitchListTile(
+                secondary: const Icon(Icons.add_shopping_cart, color: Colors.green),
+                title: const Text('Quick Sale Button'),
+                subtitle: const Text('Show floating button for quick access to new sale'),
+                value: isEnabled,
+                onChanged: (value) async {
+                  await _setQuickSaleFABPreference(value);
+                  setState(() {});
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          value
+                              ? 'Quick sale button enabled'
+                              : 'Quick sale button disabled',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          ),
 
           const SizedBox(height: 8),
           _buildSectionHeader('Database'),
