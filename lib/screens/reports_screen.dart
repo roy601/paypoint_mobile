@@ -237,7 +237,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports & Analytics'),
+        title: const Text(''),
         actions: [
           IconButton(
             icon: _isGeneratingPDF

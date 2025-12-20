@@ -82,7 +82,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sales History'),
+        title: const Text(''),
         actions: [
           IconButton(
             icon: Icon(_isFiltered ? Icons.filter_alt : Icons.filter_alt_outlined),
