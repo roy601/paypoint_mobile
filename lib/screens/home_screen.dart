@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import 'pos_screen.dart';
 import 'day_cashbook_screen.dart';
 import 'ledger_screen.dart';
+import 'expenses_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -134,6 +135,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const POSScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildActionCard(
+                context,
+                icon: Icons.receipt_long,
+                title: 'Expenses',
+                color: Colors.red,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ExpensesScreen(),
                     ),
                   );
                 },

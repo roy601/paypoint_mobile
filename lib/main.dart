@@ -10,7 +10,7 @@ import 'providers/sales_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/main_navigation_screen.dart';
-
+import'providers/expense_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -35,6 +35,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => SyncProvider()),
         ChangeNotifierProvider(create: (_) => SalesProvider()),
+        ChangeNotifierProvider(create: (_) => ExpenseProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
