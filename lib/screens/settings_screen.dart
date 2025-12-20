@@ -244,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('This will delete all sales and products'),
             onTap: () => _showClearDataDialog(),
           ),
-
+          const SizedBox(height: 8),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text(

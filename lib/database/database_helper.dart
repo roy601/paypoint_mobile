@@ -919,7 +919,17 @@ class DatabaseHelper {
     await db.delete('expenses');
     // Don't delete users and organizations tables
   }
-
+  // One-time method to activate all products
+  Future<void> makeAllProductsActive() async {
+    final db = await database;
+    await db.update(
+      'products',
+      {'isActive': 1},
+      where: 'isActive = ?',
+      whereArgs: [0],
+    );
+    print('All products are now active');
+  }
   Future close() async {
     final db = await database;
     db.close();

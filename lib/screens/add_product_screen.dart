@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../providers/product_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/product.dart';
+import 'barcode_scanner_screen.dart';
 
 class AddProductScreen extends StatefulWidget {
   final Product? product;
@@ -90,7 +91,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           controller: controller,
           decoration: const InputDecoration(
             labelText: 'Category Name',
-            hintText: 'e.g., Furniture',
+            hintText: '',
             border: OutlineInputBorder(),
           ),
           textCapitalization: TextCapitalization.words,
@@ -207,7 +208,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Product Name',
-                hintText: 'e.g., Samsung Galaxy S24',
+                hintText: '',
                 prefixIcon: Icon(Icons.shopping_bag),
                 border: OutlineInputBorder(),
               ),
@@ -222,6 +223,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             const SizedBox(height: 16),
 
             // Barcode
+// Barcode
             TextFormField(
               controller: _barcodeController,
               decoration: InputDecoration(
@@ -231,11 +233,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.camera_alt),
-                  onPressed: () {
-                    // TODO: Open barcode scanner
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Barcode scanner coming soon!')),
+                  onPressed: () async {
+                    // Open barcode scanner
+                    final result = await Navigator.push<String>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const BarcodeScannerScreen(),
+                      ),
                     );
+
+                    if (result != null) {
+                      setState(() {
+                        _barcodeController.text = result;
+                      });
+                    }
                   },
                 ),
               ),

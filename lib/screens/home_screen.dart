@@ -181,16 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              _buildActionCard(
-                context,
-                icon: Icons.analytics,
-                title: 'Quick Report',
-                color: Colors.orange,
-                onTap: () {
-                  // Navigate to reports tab
-                  // This will be handled by parent navigation
-                },
-              ),
             ],
           ),
         ],

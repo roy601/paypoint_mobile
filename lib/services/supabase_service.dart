@@ -206,7 +206,7 @@ class SupabaseService {
     }
   }
 
-  // ========== USER OPERATIONS ==========
+// ========== USER OPERATIONS ==========
 
   Future<void> upsertUser(Map<String, dynamic> user) async {
     try {
@@ -222,6 +222,37 @@ class SupabaseService {
       print('User upserted to Supabase: ${user['id']}');
     } catch (e) {
       print('Error upserting user to Supabase: $e');
+      rethrow;
+    }
+  }
+
+// NEW: Get user by username
+  Future<Map<String, dynamic>?> getUserByUsername(String username) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('username', username)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('Error fetching user by username: $e');
+      return null;
+    }
+  }
+
+// NEW: Update user by ID
+  Future<void> updateUser(String id, Map<String, dynamic> user) async {
+    try {
+      await _supabase.from('users').update({
+        'password': user['password'],
+        'email': user['email'],
+        'role': user['role'],
+        'organization_id': user['organization_id'],
+      }).eq('id', id);
+      print('User updated in Supabase: $id');
+    } catch (e) {
+      print('Error updating user in Supabase: $e');
       rethrow;
     }
   }

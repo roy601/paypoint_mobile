@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../models/product.dart';
 import 'package:intl/intl.dart';
 import 'add_product_screen.dart';
+import '../database/database_helper.dart';
+
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({Key? key}) : super(key: key);
@@ -26,12 +28,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
   }
 
-  void _loadProducts() {
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+  Future<void> _loadProducts() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
 
     productProvider.setOrganizationId(authProvider.organizationId);
-    productProvider.loadProducts();
+    await productProvider.loadProducts();
   }
 
   void _searchProducts(String query) async {
@@ -81,8 +83,58 @@ class _ProductsScreenState extends State<ProductsScreen> {
       appBar: AppBar(
         title: const Text(''),
         actions: [
+          // Make all products active button
+          IconButton(
+            icon: const Icon(Icons.check_circle_outline),
+            tooltip: 'Activate All Products',
+            onPressed: () async {
+              // Show confirmation dialog
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Activate All Products'),
+                  content: const Text('This will make all products active. Continue?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Activate All'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true && mounted) {
+                // Call the method
+                await DatabaseHelper.instance.makeAllProductsActive();
+
+                // Reload products
+                await _loadProducts();
+
+                // Show success message
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ All products are now active!'),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          // Refresh button
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
             onPressed: _loadProducts,
           ),
         ],

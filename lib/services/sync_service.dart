@@ -205,7 +205,7 @@ class SyncService {
     }
   }
 
-  // Sync users (bidirectional)
+// Sync users (bidirectional)
   Future<void> syncUsers({String? organizationId}) async {
     try {
       // 1. Push local users to Supabase
@@ -218,22 +218,40 @@ class SyncService {
       }
 
       for (var user in localUsers) {
-        await _supabaseService.upsertUser(user);
+        try {
+          // Check if user exists in Supabase by username
+          final existing = await _supabaseService.getUserByUsername(user['username']);
+
+          if (existing != null) {
+            // User exists, update it using the Supabase ID
+            await _supabaseService.updateUser(existing['id'], user);
+          } else {
+            // User doesn't exist, create new
+            await _supabaseService.upsertUser(user);
+          }
+        } catch (e) {
+          print('Error syncing user ${user['username']}: $e');
+          // Continue with next user
+        }
       }
 
       // 2. Pull users from Supabase to local
       final remoteUsers = await _supabaseService.getUsers(
         organizationId: organizationId,
       );
+
       for (var user in remoteUsers) {
-        final existingUser = await _dbHelper.getUserByUsername(user['username']);
-        if (existingUser == null) {
+        // Check if user exists locally by username
+        final localUsersList = await _dbHelper.getAllUsers();
+        final existsLocally = localUsersList.any((u) => u['username'] == user['username']);
+
+        if (!existsLocally) {
+          // Create user locally using positional parameters
           await _dbHelper.createUser(
-            user['id'],
             user['username'],
             user['password'],
-            email: user['email'],
-            role: user['role'] ?? 'cashier',
+            user['email'] ?? '',
+            role: user['role'],
             organizationId: user['organization_id'],
           );
         }
@@ -245,7 +263,6 @@ class SyncService {
       rethrow;
     }
   }
-
   // Auto-sync on app start
   Future<void> autoSync({String? organizationId}) async {
     final online = await isOnline();
