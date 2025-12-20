@@ -47,7 +47,61 @@ class SyncService {
       };
     }
   }
+// Sync expenses (bidirectional)
+  Future<void> syncExpenses({String? organizationId}) async {
+    try {
+      // 1. Push local expenses to Supabase
+      List<Map<String, dynamic>> localExpenses;
 
+      if (organizationId != null) {
+        localExpenses = await _dbHelper.getExpensesByDateRange(
+          DateTime(2020, 1, 1),
+          DateTime.now(),
+          organizationId: organizationId,
+        );
+      } else {
+        localExpenses = await _dbHelper.getAllExpenses();
+      }
+
+      for (var expense in localExpenses) {
+        await _supabaseService.upsertExpense(expense);
+      }
+
+      // 2. Pull expenses from Supabase to local
+      final remoteExpenses = await _supabaseService.getExpenses(
+        organizationId: organizationId,
+      );
+
+      for (var expense in remoteExpenses) {
+        // Check if expense exists locally
+        final existingExpenses = await _dbHelper.getAllExpenses(
+          organizationId: organizationId,
+        );
+
+        final exists = existingExpenses.any((e) => e['id'] == expense['id']);
+
+        if (!exists) {
+          // Create expense locally
+          await _dbHelper.createExpense(
+            id: expense['id'],
+            description: expense['description'],
+            amount: (expense['amount'] as num).toDouble(),
+            category: expense['category'],
+            date: DateTime.parse(expense['date']),
+            organizationId: expense['organization_id'],
+          );
+        } else {
+          // Update existing expense
+          await _dbHelper.updateExpense(expense);
+        }
+      }
+
+      print('Expenses synced successfully');
+    } catch (e) {
+      print('Error syncing expenses: $e');
+      rethrow;
+    }
+  }
   // ✅ NEW: Sync ALL organizations from local DB
   Future<void> syncAllOrganizations() async {
     try {
