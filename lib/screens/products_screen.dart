@@ -48,7 +48,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
 
     final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    final results = await productProvider.searchProducts(query);
+
+    // Search by both name and category
+    final allProducts = productProvider.products;
+    final results = allProducts.where((product) {
+      final nameLower = product.name.toLowerCase();
+      final categoryLower = (product.category ?? '').toLowerCase();
+      final queryLower = query.toLowerCase();
+
+      return nameLower.contains(queryLower) ||
+          categoryLower.contains(queryLower) ||
+          (product.barcode?.contains(query) ?? false);
+    }).toList();
 
     setState(() {
       _filteredProducts = results;

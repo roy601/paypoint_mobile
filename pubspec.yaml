@@ -58,7 +58,7 @@ dependencies:
 
   # File Sharing
   share_plus: ^7.2.1
-
+  mobile_scanner: ^5.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
