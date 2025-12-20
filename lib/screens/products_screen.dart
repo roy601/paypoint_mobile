@@ -68,7 +68,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products'),
+        title: const Text(''),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

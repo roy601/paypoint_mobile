@@ -24,10 +24,8 @@ class SyncService {
     }
 
     try {
-      // Sync organization first
-      if (organizationId != null) {
-        await syncOrganization(organizationId);
-      }
+      // ✅ Sync ALL organizations first (not just one)
+      await syncAllOrganizations();
 
       // Sync products
       await syncProducts(organizationId: organizationId);
@@ -50,7 +48,31 @@ class SyncService {
     }
   }
 
-  // Sync organization
+  // ✅ NEW: Sync ALL organizations from local DB
+  Future<void> syncAllOrganizations() async {
+    try {
+      // Get all organizations from local database
+      final allOrgs = await _dbHelper.getAllOrganizations();
+
+      if (allOrgs.isEmpty) {
+        print('No organizations to sync');
+        return;
+      }
+
+      for (var orgMap in allOrgs) {
+        final organization = Organization.fromMap(orgMap);
+        await _supabaseService.upsertOrganization(organization);
+        print('Synced organization: ${organization.name}');
+      }
+
+      print('All organizations synced successfully');
+    } catch (e) {
+      print('Error syncing all organizations: $e');
+      rethrow;
+    }
+  }
+
+  // Sync single organization (for backward compatibility)
   Future<void> syncOrganization(String organizationId) async {
     try {
       // Get local organization

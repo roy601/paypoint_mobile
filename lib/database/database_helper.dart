@@ -212,6 +212,12 @@ class DatabaseHelper {
     return null;
   }
 
+  // ✅ NEW METHOD: Get all organizations
+  Future<List<Map<String, dynamic>>> getAllOrganizations() async {
+    final db = await database;
+    return await db.query('organizations', orderBy: 'created_at DESC');
+  }
+
   Future<Map<String, dynamic>?> getOrganizationByOwnerId(String ownerId) async {
     final db = await database;
     final result = await db.query(
