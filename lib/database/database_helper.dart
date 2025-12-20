@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,  // Updated to version 3
+      version: 4,  // Updated to version 4
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -35,7 +35,7 @@ class DatabaseHelper {
     const realType = 'REAL NOT NULL';
     const boolType = 'INTEGER NOT NULL';
 
-    // Organizations table
+    // Organizations table with opening balance
     await db.execute('''
       CREATE TABLE organizations (
         id $idType,
@@ -46,6 +46,8 @@ class DatabaseHelper {
         email TEXT,
         tax_rate REAL DEFAULT 0,
         currency TEXT DEFAULT 'BDT',
+        opening_balance REAL DEFAULT 0,
+        is_opening_balance_set INTEGER DEFAULT 0,
         created_at $textType
       )
     ''');
@@ -114,6 +116,19 @@ class DatabaseHelper {
         FOREIGN KEY (saleId) REFERENCES sales (id) ON DELETE CASCADE
       )
     ''');
+
+    // Expenses table
+    await db.execute('''
+      CREATE TABLE expenses (
+        id $idType,
+        description $textType,
+        amount $realType,
+        category $textType,
+        date $textType,
+        organization_id TEXT,
+        FOREIGN KEY (organization_id) REFERENCES organizations (id)
+      )
+    ''');
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -158,6 +173,35 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE products ADD COLUMN organization_id TEXT');
       await db.execute('ALTER TABLE sales ADD COLUMN organization_id TEXT');
     }
+
+    if (oldVersion < 4) {
+      // Add expenses table
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+      const realType = 'REAL NOT NULL';
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+          id $idType,
+          description $textType,
+          amount $realType,
+          category $textType,
+          date $textType,
+          organization_id TEXT
+        )
+      ''');
+
+      // Add opening balance columns to organizations
+      await db.execute('''
+        ALTER TABLE organizations 
+        ADD COLUMN opening_balance REAL DEFAULT 0
+      ''');
+
+      await db.execute('''
+        ALTER TABLE organizations 
+        ADD COLUMN is_opening_balance_set INTEGER DEFAULT 0
+      ''');
+    }
   }
 
   // ========== ORGANIZATION OPERATIONS ==========
@@ -184,6 +228,8 @@ class DatabaseHelper {
         'email': email,
         'tax_rate': taxRate,
         'currency': currency,
+        'opening_balance': 0.0,
+        'is_opening_balance_set': 0,
         'created_at': DateTime.now().toIso8601String(),
       });
       return {
@@ -212,7 +258,6 @@ class DatabaseHelper {
     return null;
   }
 
-  // ✅ NEW METHOD: Get all organizations
   Future<List<Map<String, dynamic>>> getAllOrganizations() async {
     final db = await database;
     return await db.query('organizations', orderBy: 'created_at DESC');
@@ -240,6 +285,46 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [organization['id']],
     );
+  }
+
+  // ========== ORGANIZATION OPENING BALANCE ==========
+
+  Future<bool> setOpeningBalance(String organizationId, double amount) async {
+    final db = await database;
+
+    try {
+      // Check if already set
+      final org = await getOrganization(organizationId);
+      if (org != null && org['is_opening_balance_set'] == 1) {
+        return false; // Already set, cannot change
+      }
+
+      // Set opening balance
+      await db.update(
+        'organizations',
+        {
+          'opening_balance': amount,
+          'is_opening_balance_set': 1,
+        },
+        where: 'id = ?',
+        whereArgs: [organizationId],
+      );
+
+      return true;
+    } catch (e) {
+      print('Error setting opening balance: $e');
+      return false;
+    }
+  }
+
+  Future<double> getOpeningBalance(String organizationId) async {
+    final org = await getOrganization(organizationId);
+    return (org?['opening_balance'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<bool> isOpeningBalanceSet(String organizationId) async {
+    final org = await getOrganization(organizationId);
+    return (org?['is_opening_balance_set'] as int?) == 1;
   }
 
   // ========== USER OPERATIONS ==========
@@ -649,6 +734,181 @@ class DatabaseHelper {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
+  // ========== EXPENSE OPERATIONS ==========
+
+  Future<String?> createExpense({
+    required String id,
+    required String description,
+    required double amount,
+    required String category,
+    required DateTime date,
+    String? organizationId,
+  }) async {
+    final db = await database;
+
+    try {
+      await db.insert('expenses', {
+        'id': id,
+        'description': description,
+        'amount': amount,
+        'category': category,
+        'date': date.toIso8601String(),
+        'organization_id': organizationId,
+      });
+      return null; // Success
+    } catch (e) {
+      return 'Error creating expense: $e';
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllExpenses({String? organizationId}) async {
+    final db = await database;
+
+    if (organizationId != null) {
+      return await db.query(
+        'expenses',
+        where: 'organization_id = ?',
+        whereArgs: [organizationId],
+        orderBy: 'date DESC',
+      );
+    } else {
+      return await db.query('expenses', orderBy: 'date DESC');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getExpensesByDate(
+      DateTime date,
+      {String? organizationId}
+      ) async {
+    final db = await database;
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    if (organizationId != null) {
+      return await db.query(
+        'expenses',
+        where: 'date >= ? AND date < ? AND organization_id = ?',
+        whereArgs: [
+          startOfDay.toIso8601String(),
+          endOfDay.toIso8601String(),
+          organizationId,
+        ],
+        orderBy: 'date DESC',
+      );
+    } else {
+      return await db.query(
+        'expenses',
+        where: 'date >= ? AND date < ?',
+        whereArgs: [
+          startOfDay.toIso8601String(),
+          endOfDay.toIso8601String(),
+        ],
+        orderBy: 'date DESC',
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getExpensesByDateRange(
+      DateTime start,
+      DateTime end,
+      {String? organizationId}
+      ) async {
+    final db = await database;
+
+    if (organizationId != null) {
+      return await db.query(
+        'expenses',
+        where: 'date >= ? AND date <= ? AND organization_id = ?',
+        whereArgs: [
+          start.toIso8601String(),
+          end.toIso8601String(),
+          organizationId,
+        ],
+        orderBy: 'date DESC',
+      );
+    } else {
+      return await db.query(
+        'expenses',
+        where: 'date >= ? AND date <= ?',
+        whereArgs: [
+          start.toIso8601String(),
+          end.toIso8601String(),
+        ],
+        orderBy: 'date DESC',
+      );
+    }
+  }
+
+  Future<int> updateExpense(Map<String, dynamic> expense) async {
+    final db = await database;
+    return db.update(
+      'expenses',
+      expense,
+      where: 'id = ?',
+      whereArgs: [expense['id']],
+    );
+  }
+
+  Future<int> deleteExpense(String id) async {
+    final db = await database;
+    return await db.delete(
+      'expenses',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<double> getTotalExpensesByDateRange(
+      DateTime start,
+      DateTime end,
+      {String? organizationId}
+      ) async {
+    final db = await database;
+
+    List<Map<String, dynamic>> result;
+
+    if (organizationId != null) {
+      result = await db.rawQuery(
+        'SELECT SUM(amount) as total FROM expenses WHERE date >= ? AND date <= ? AND organization_id = ?',
+        [start.toIso8601String(), end.toIso8601String(), organizationId],
+      );
+    } else {
+      result = await db.rawQuery(
+        'SELECT SUM(amount) as total FROM expenses WHERE date >= ? AND date <= ?',
+        [start.toIso8601String(), end.toIso8601String()],
+      );
+    }
+
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  // ========== PURCHASE TRACKING (using product cost) ==========
+
+  Future<double> getTotalPurchasesByDateRange(
+      DateTime start,
+      DateTime end,
+      {String? organizationId}
+      ) async {
+    final db = await database;
+
+    // Get all products created in this date range
+    List<Map<String, dynamic>> result;
+
+    if (organizationId != null) {
+      result = await db.rawQuery(
+        'SELECT SUM(cost * stock) as total FROM products WHERE createdAt >= ? AND createdAt <= ? AND organization_id = ?',
+        [start.toIso8601String(), end.toIso8601String(), organizationId],
+      );
+    } else {
+      result = await db.rawQuery(
+        'SELECT SUM(cost * stock) as total FROM products WHERE createdAt >= ? AND createdAt <= ?',
+        [start.toIso8601String(), end.toIso8601String()],
+      );
+    }
+
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
   // ========== UTILITY OPERATIONS ==========
 
   Future<void> clearAllData() async {
@@ -656,6 +916,7 @@ class DatabaseHelper {
     await db.delete('sale_items');
     await db.delete('sales');
     await db.delete('products');
+    await db.delete('expenses');
     // Don't delete users and organizations tables
   }
 
