@@ -233,11 +233,5 @@ This project is private and not available for public distribution.
 
 ---
 
-## 👨‍💻 Author
-
-**PayPoint Mobile Team**
-
----
-
 <p align="center">
 </p>
