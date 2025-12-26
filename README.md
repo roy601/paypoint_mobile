@@ -240,5 +240,4 @@ This project is private and not available for public distribution.
 ---
 
 <p align="center">
-  Made with ❤️ using Flutter
 </p>
