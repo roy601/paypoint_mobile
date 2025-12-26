@@ -109,7 +109,7 @@ lib/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/paypoint_mobile.git
+   git clone https://github.com/roy601/paypoint_mobile
    cd paypoint_mobile
    ```
 
